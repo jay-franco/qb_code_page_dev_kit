@@ -1,0 +1,301 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+
+    <script src='?a=dbpage&pagename=qbrest.js'></script>
+    <style>
+        .starter-template {
+            padding: 5px 15px;
+            text-align: center;
+        }
+
+        .table-image td,
+        .table-image th {
+            vertical-align: middle;
+        }
+
+        .table-image td img {
+            max-width: 140px;
+        }
+
+        .card-img-top {
+            width: 100%;
+            height: 15vw;
+            object-fit: contain;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .files input {
+            outline: 2px dashed #92b0b3;
+            outline-offset: -10px;
+            -webkit-transition: outline-offset .15s ease-in-out, background-color .15s linear;
+            transition: outline-offset .15s ease-in-out, background-color .15s linear;
+            padding: 120px 0px 85px 35%;
+            text-align: center !important;
+            margin: 0;
+            width: 100% !important;
+        }
+
+        .files input:focus {
+            outline: 2px dashed #92b0b3;
+            outline-offset: -10px;
+            -webkit-transition: outline-offset .15s ease-in-out, background-color .15s linear;
+            transition: outline-offset .15s ease-in-out, background-color .15s linear;
+            border: 1px solid #92b0b3;
+        }
+
+        .files {
+            position: relative
+        }
+
+        .files:after {
+            pointer-events: none;
+            position: absolute;
+            top: 60px;
+            left: 0;
+            width: 50px;
+            right: 0;
+            height: 56px;
+            content: "";
+            display: block;
+            margin: 0 auto;
+            background-size: 100%;
+            background-repeat: no-repeat;
+        }
+
+        .color input {
+            background-color: #f1f1f1;
+        }
+
+        .files:before {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            pointer-events: none;
+            width: 100%;
+            right: 0;
+            height: 57px;
+            content: " or drag it here. ";
+            display: block;
+            margin: 0 auto;
+            color: #2ea591;
+            font-weight: 600;
+            text-transform: capitalize;
+            text-align: center;
+        }
+    </style>
+    <title>Image Uploader</title>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <header class="d-flex flex-wrap justify-content-center py-3 mb-4 border-bottom">
+            <a href="#" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none">
+                <svg class="bi me-2" width="40" height="32">
+                    <use xlink:href="#bootstrap" />
+                </svg>
+                <span class="fs-4">QB Attachment Uploader</span>
+            </a>
+        </header>
+    </div>
+
+    <div id="app">
+        <div class="container-fluid">
+            <div class="starter-template">
+                <p class="lead">Attachment Uploader</p>
+            </div>
+
+            <div class="row">
+                <div class="row text-center">
+                    <a target="_blank" id="project-link">
+                        <h3 id="project-name"></h3>
+                    </a>
+                </div>
+
+                <div id="status-row" class="row text-center hidden">
+                    <h3 id="status-text"></h3>
+                </div>
+
+                <div id="upload-form" class="row justify-content-center">
+                    <div class="col-3">
+                        <div class="form-group files">
+                            <input type="file" class="form-control" id="file-input">
+                        </div>
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-primary" id="upload-btn" disabled>Upload File</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN"
+        crossorigin="anonymous"></script>
+
+    <script>
+        // Configuration
+        const realm = '';
+        const appToken = '';
+        const q2 = new QbRest(realm, appToken);
+
+        // Get URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const tid = params.get("tid");
+        const rid = params.get("rid");
+        const fid = params.get("fid");
+
+        // DOM elements
+        const projectLink = document.getElementById('project-link');
+        const projectName = document.getElementById('project-name');
+        const statusRow = document.getElementById('status-row');
+        const statusText = document.getElementById('status-text');
+        const uploadForm = document.getElementById('upload-form');
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-btn');
+
+        // Application state
+        let appState = {
+            status: 'fresh',
+            selectedFile: null
+        };
+
+        // Utility functions
+        function safeRedirect(url) {
+            if (!url || url === window.location.href) {
+                url = `https://${realm}.quickbase.com/db/${tid}`;
+            }
+            window.location.href = url;
+        }
+
+
+        function createPayload(imageFile) {
+            return [{
+                [fid]: {
+                    "value": {
+                        "fileName": imageFile.name,
+                        "data": imageFile.data.split(",")[1]
+                    }
+                },
+                "3": {
+                    "value": rid
+                }
+            }];
+        }
+
+        async function uploadImage(imageFile) {
+            const data = createPayload(imageFile);
+            return await q2.qbaUpsert(tid, data);
+        }
+
+        function readAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                let fileReader = new FileReader();
+                fileReader.onload = function () {
+                    resolve({
+                        data: fileReader.result,
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                    });
+                };
+                fileReader.readAsDataURL(file);
+            });
+        }
+
+        function updateStatus(status) {
+            appState.status = status;
+            if (status === 'fresh') {
+                statusRow.classList.add('hidden');
+                uploadForm.classList.remove('hidden');
+                uploadBtn.disabled = !appState.selectedFile;
+            } else {
+                statusText.textContent = status;
+                statusRow.classList.remove('hidden');
+                uploadForm.classList.add('hidden');
+            }
+        }
+
+        async function handleFileChange(e) {
+            const files = [...e.target.files];
+            if (!files.length) {
+                appState.selectedFile = null;
+                uploadBtn.disabled = true;
+                return;
+            }
+
+            const file = files[0];
+
+            // Validate file type
+            if (file.type.split("/")[0] !== "image") {
+                alert("File is not an image");
+                e.target.value = ''; // Clear the input
+                appState.selectedFile = null;
+                uploadBtn.disabled = true;
+                return;
+            }
+
+            // Validate file size
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                alert("File is too large. Maximum size is 5MB.");
+                e.target.value = ''; // Clear the input
+                appState.selectedFile = null;
+                uploadBtn.disabled = true;
+                return;
+            }
+
+            // File is valid, store it and enable upload button
+            appState.selectedFile = file;
+            uploadBtn.disabled = false;
+        }
+
+        async function handleUpload() {
+            if (!appState.selectedFile) return;
+
+            updateStatus('Uploading...');
+
+            try {
+                // Convert file to data URL
+                const fileData = await readAsDataURL(appState.selectedFile);
+
+                const response = await uploadImage(fileData);
+                if (response && !response.metadata?.lineErrors) {
+                    updateStatus('Uploaded');
+                    safeRedirect(document.referrer);
+                } else {
+                    updateStatus('Error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                updateStatus('Error');
+            }
+        }
+
+        // Initialize the application
+        function init() {
+            // Set up event listeners
+            fileInput.addEventListener('change', handleFileChange);
+            uploadBtn.addEventListener('click', handleUpload);
+
+            // Initialize status
+            updateStatus('fresh');
+        }
+
+        // Start the application when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+
+</html>
