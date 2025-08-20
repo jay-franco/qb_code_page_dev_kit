@@ -1,0 +1,29 @@
+{
+  "current_environment": "default",
+  "environments": {
+    "default": {
+      "USER_TOKEN": "",
+      "QB_REALM": "",
+      "QB_APPLICATION_DBID": "",
+      "pages": {
+        "example.html": 0
+      }
+    },
+    "dev": {
+      "USER_TOKEN": "",
+      "QB_REALM": "",
+      "QB_APPLICATION_DBID": "",
+      "pages": {
+        "example.html": 0
+      }
+    },
+    "prod": {
+      "USER_TOKEN": "",
+      "QB_REALM": "",
+      "QB_APPLICATION_DBID": "",
+      "pages": {
+        "example.html": 0
+      }
+    }
+  }
+}

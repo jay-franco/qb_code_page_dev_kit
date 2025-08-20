@@ -1,8 +1,0 @@
-USER_TOKEN = ""
-QB_REALM = ""
-QB_REALM_HOST = f"{QB_REALM}.quickbase.com" # Do Not Change
-QB_BASE_URL = f"https://{QB_REALM}.quickbase.com" # Do Not Change
-QB_APPLICATION_DBID = ""
-pages = {
-    "example.html" : ID,
-}
