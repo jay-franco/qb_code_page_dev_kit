@@ -69,10 +69,13 @@ class QbRest {
         return response;
     }
 
-    async qbaUpsert(dbid, fields) {
+    async qbaUpsert(dbid, fields, fieldsToReturn = null, mergeFieldId = null) {
         const reqdata = {};
         reqdata.to = dbid;
         reqdata.data = fields;
+        fieldsToReturn && (reqdata.fieldsToReturn = fieldsToReturn);
+        mergeFieldId && (reqdata.mergeFieldId = mergeFieldId);
+
         const response = await this.qbaMakeRequest('POST', 'records', dbid, reqdata);
 
         if (!response) {
@@ -80,6 +83,10 @@ class QbRest {
             return false;
         }
         return response;
+    }
+
+    async upsertWithMerge(dbid, fields, mergeFieldId) {
+        return this.qbaUpsert(dbid, fields, null, mergeFieldId);
     }
 
     async qbaQuery(dbid, fields, qry, sort = null) {
@@ -115,4 +122,24 @@ class QbRest {
         return response.text();
     }
 
+    async getUserJson() {
+        const xml = await this.getUserXml();
+        if (!xml) {
+            console.log(`HTTP Response Code: ${response?.status}`);
+            return false;
+        }
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, "text/xml");
+
+        return {
+            id: xmlDoc.querySelector('user').id,
+            firstName: xmlDoc.querySelector('firstName')?.textContent,
+            lastName: xmlDoc.querySelector('lastName')?.textContent,
+            login: xmlDoc.querySelector('login')?.textContent,
+            email: xmlDoc.querySelector('email')?.textContent,
+            screenName: xmlDoc.querySelector('screenName')?.textContent,
+            isVerified: xmlDoc.querySelector('isVerified')?.textContent,
+            externalAuth: xmlDoc.querySelector('externalAuth')?.textContent
+        }
+    }
 }
