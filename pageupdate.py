@@ -39,7 +39,24 @@ isNewPage = False
 isGetOperation = args.get
 
 if not pyFileName:
-    pyFileName = max((file for file in os.listdir('.') if file.endswith(('.html','.js'))), key=os.path.getmtime)
+    if isGetOperation and pyFileId:
+        # Try to find filename by page ID in config first
+        filename_from_config = None
+        for filename, page_id in pages_config.items():
+            if page_id == pyFileId:
+                filename_from_config = filename
+                break
+        
+        if filename_from_config:
+            pyFileName = filename_from_config
+        else:
+            # Prompt user for filename
+            pyFileName = input(f"Enter filename to save page {pyFileId}: ").strip()
+            if not pyFileName:
+                print("Error: No filename provided")
+                sys.exit()
+    else:
+        pyFileName = max((file for file in os.listdir('.') if file.endswith(('.html','.js'))), key=os.path.getmtime)
 
 if not pyFileId:
     pyFileId = pages_config.get(pyFileName)
@@ -188,6 +205,10 @@ class DatabaseClient:
                 file.write(page_content)
             
             print(f"Success! Downloaded '{pyFileName}' from QuickBase (Page ID: {pyFileId})")
+            
+            # Add to config if this page ID wasn't already mapped
+            if pyFileName not in pages_config or pages_config[pyFileName] != pyFileId:
+                self._add_page_to_config(pyFileName, pyFileId)
         else:
             error_text = parsed.findtext('errtext', 'Unknown error')
             print(f"Error Code {error_code}: {error_text}")
