@@ -1,12 +1,14 @@
 import requests,sys, os
 import argparse
 import json
+import html
 import xml.etree.ElementTree as etree
 
 parser = argparse.ArgumentParser(description='Update or create QuickBase code pages')
 parser.add_argument('--filename', help='File to upload')
 parser.add_argument('--pageid', type=int, help='Page ID for updating existing page')
 parser.add_argument('--env', help='Environment to use (overrides current_environment in config)')
+parser.add_argument('--get', action='store_true', help='Download page from QuickBase instead of uploading')
 
 args = parser.parse_args()
 
@@ -34,6 +36,7 @@ pages_config = env_config["pages"]
 pyFileName = args.filename
 pyFileId = args.pageid
 isNewPage = False
+isGetOperation = args.get
 
 if not pyFileName:
     pyFileName = max((file for file in os.listdir('.') if file.endswith(('.html','.js'))), key=os.path.getmtime)
@@ -131,6 +134,67 @@ class DatabaseClient:
         
         print(f"Added '{filename}' : {page_id} to {config_file}")
 
+    def get_db_page(self):
+        if not pyFileId:
+            print(f"Error: Page ID not found for '{pyFileName}' in config")
+            return
+        
+        # Request URL Handler
+        url = qbBaseURL + '/db/' + qbApplicationDBID
+        
+        # Generate Headers For Request
+        headers = {
+            'Content-Type': 'application/xml',
+            'QUICKBASE-ACTION': 'API_GetDBPage',
+        }
+        
+        # Create A Request Dictionary
+        request_dict = {
+            'pageid': pyFileId,
+            'usertoken': qbUserToken,
+        }
+        
+        # Convert to XML 
+        xml_data = self._build_request(**request_dict)
+        
+        # Submit Request
+        request = requests.post(url, xml_data, headers=headers)
+        response = request.content
+        
+        # Get Request Response
+        parsed = etree.fromstring(response)
+        error_code = int(parsed.findtext('errcode'))
+        if error_code == 0:
+            # Extract page content from pagebody element including BR tags
+            pagebody_element = parsed.find('pagebody')
+            if pagebody_element is not None:
+                # Get the inner XML content of pagebody
+                page_content = ''.join(pagebody_element.itertext())
+                if not page_content:
+                    # Fallback: get the raw XML content
+                    page_content = etree.tostring(pagebody_element, encoding='unicode', method='xml')
+                    # Remove the outer pagebody tags
+                    page_content = page_content.replace('<pagebody>', '').replace('</pagebody>', '')
+            else:
+                page_content = ''
+            
+            # Remove BR tags first, then decode HTML entities, then trim
+            page_content = page_content.replace('<BR/>', '\n').replace('<br/>', '\n')
+            page_content = html.unescape(page_content)
+            page_content = page_content.strip()
+            
+            # Write to file
+            with open(pyFileName, 'w', encoding='utf-8') as file:
+                file.write(page_content)
+            
+            print(f"Success! Downloaded '{pyFileName}' from QuickBase (Page ID: {pyFileId})")
+        else:
+            error_text = parsed.findtext('errtext', 'Unknown error')
+            print(f"Error Code {error_code}: {error_text}")
+
 # Example usage
 client = DatabaseClient()
-client.add_replace_db_pages()
+if isGetOperation:
+    client.get_db_page()
+else:
+    client.add_replace_db_pages()
